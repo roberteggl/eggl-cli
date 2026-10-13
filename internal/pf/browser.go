@@ -4,25 +4,43 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 )
 
 func defaultOpenURL(url string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		cmd = exec.Command("open", url)
-	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		cmd = exec.Command("xdg-open", url)
+	bin, args, err := openURLCommand(url)
+	if err != nil {
+		return err
 	}
+	cmd := exec.Command(bin, args...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("open %s: %w", url, err)
 	}
 	return nil
+}
+
+func openURLCommand(url string) (string, []string, error) {
+	switch runtime.GOOS {
+	case "darwin":
+		bin, err := exec.LookPath("open")
+		if err != nil {
+			bin = "/usr/bin/open"
+		}
+		return bin, []string{url}, nil
+	case "windows":
+		bin := filepath.Join(os.Getenv("SystemRoot"), "System32", "rundll32.exe")
+		return bin, []string{"url.dll,FileProtocolHandler", url}, nil
+	default:
+		bin, err := exec.LookPath("xdg-open")
+		if err != nil {
+			bin = "/usr/bin/xdg-open"
+		}
+		return bin, []string{url}, nil
+	}
 }
 
 func waitForLocalPort(ctx context.Context, port string) error {

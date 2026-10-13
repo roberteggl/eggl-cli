@@ -56,29 +56,12 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		Found:  found,
 		DryRun: opts.DryRun,
 	}
-	if len(found) == 0 {
-		return result, nil
-	}
-
-	if opts.DryRun {
+	if len(found) == 0 || opts.DryRun {
 		return result, nil
 	}
 
 	if !opts.Yes {
-		in := opts.Input
-		if in == nil {
-			in = os.Stdin
-		}
-		out := opts.Output
-		if out == nil {
-			out = os.Stderr
-		}
-		if !ui.IsInteractiveInput(in) {
-			return result, fmt.Errorf("not a terminal; use --yes to confirm kills")
-		}
-
-		prompt := fmt.Sprintf("Kill %d process(es) on port %d? [y/N]: ", len(found), opts.Port)
-		ok, err := ui.ConfirmPrompt(out, in, prompt)
+		ok, err := confirmKill(opts, len(found))
 		if err != nil {
 			return result, err
 		}
@@ -97,6 +80,22 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 	}
 	result.Killed = killed
 	return result, nil
+}
+
+func confirmKill(opts Options, count int) (bool, error) {
+	in := opts.Input
+	if in == nil {
+		in = os.Stdin
+	}
+	out := opts.Output
+	if out == nil {
+		out = os.Stderr
+	}
+	if !ui.IsInteractiveInput(in) {
+		return false, fmt.Errorf("not a terminal; use --yes to confirm kills")
+	}
+	prompt := fmt.Sprintf("Kill %d process(es) on port %d? [y/N]: ", count, opts.Port)
+	return ui.ConfirmPrompt(out, in, prompt)
 }
 
 func filterProtected(processes []Process) []Process {

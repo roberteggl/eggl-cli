@@ -81,7 +81,16 @@ func (c *Config) Validate() error {
 	if len(c.Profiles) == 0 && len(c.Directories) == 0 {
 		return fmt.Errorf("config: at least one profile or directory is required")
 	}
+	if err := c.validateProfiles(); err != nil {
+		return err
+	}
+	if err := c.validateDirectories(); err != nil {
+		return err
+	}
+	return c.validatePortForwards()
+}
 
+func (c *Config) validateProfiles() error {
 	seenTargets := make(map[string]string, len(c.Profiles))
 	for name, profile := range c.Profiles {
 		if strings.TrimSpace(name) == "" {
@@ -103,7 +112,10 @@ func (c *Config) Validate() error {
 		}
 		seenTargets[key] = name
 	}
+	return nil
+}
 
+func (c *Config) validateDirectories() error {
 	for name, dir := range c.Directories {
 		if strings.TrimSpace(name) == "" {
 			return fmt.Errorf("config: directory name must not be empty")
@@ -112,30 +124,39 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("config: directory %q: path is required", name)
 		}
 	}
+	return nil
+}
 
+func (c *Config) validatePortForwards() error {
 	for name, pf := range c.PortForwards {
-		if strings.TrimSpace(name) == "" {
-			return fmt.Errorf("config: port_forward name must not be empty")
-		}
-		if strings.TrimSpace(pf.Namespace) == "" {
-			return fmt.Errorf("config: port_forward %q: namespace is required", name)
-		}
-		if err := validateNamespace(name, pf.Namespace); err != nil {
+		if err := validatePortForward(name, pf); err != nil {
 			return err
-		}
-		if strings.TrimSpace(pf.Resource) == "" {
-			return fmt.Errorf("config: port_forward %q: resource is required", name)
-		}
-		if err := validateResource(name, pf.Resource); err != nil {
-			return err
-		}
-		for _, port := range pf.Ports {
-			if err := validatePortMapping(name, port); err != nil {
-				return err
-			}
 		}
 	}
+	return nil
+}
 
+func validatePortForward(name string, pf PortForward) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("config: port_forward name must not be empty")
+	}
+	if strings.TrimSpace(pf.Namespace) == "" {
+		return fmt.Errorf("config: port_forward %q: namespace is required", name)
+	}
+	if err := validateNamespace(name, pf.Namespace); err != nil {
+		return err
+	}
+	if strings.TrimSpace(pf.Resource) == "" {
+		return fmt.Errorf("config: port_forward %q: resource is required", name)
+	}
+	if err := validateResource(name, pf.Resource); err != nil {
+		return err
+	}
+	for _, port := range pf.Ports {
+		if err := validatePortMapping(name, port); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

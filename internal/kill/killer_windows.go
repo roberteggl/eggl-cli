@@ -5,7 +5,9 @@ package kill
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 type windowsKiller struct{}
@@ -19,7 +21,8 @@ func (windowsKiller) Kill(ctx context.Context, pid int, force bool) error {
 	if force {
 		args = append(args, "/F")
 	}
-	cmd := exec.CommandContext(ctx, "taskkill", args...)
+	taskkill := filepath.Join(os.Getenv("SystemRoot"), "System32", "taskkill.exe")
+	cmd := exec.CommandContext(ctx, taskkill, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("taskkill: %w: %s", err, trimOutput(out))
 	}

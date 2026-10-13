@@ -95,11 +95,8 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 		if err := scanGitDiff(ctx, opts, root, extensions, report, &pending); err != nil {
 			return nil, err
 		}
-	} else {
-		err = walkDirectory(ctx, opts, root, extensions, report, &pending)
-		if err != nil {
-			return nil, err
-		}
+	} else if err := walkDirectory(ctx, opts, root, extensions, report, &pending); err != nil {
+		return nil, err
 	}
 
 	slog.Debug("scan complete",
@@ -114,20 +111,7 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 	}
 
 	if !opts.Yes {
-		in := opts.Input
-		if in == nil {
-			in = os.Stdin
-		}
-		out := opts.Output
-		if out == nil {
-			out = os.Stderr
-		}
-		if !ui.IsInteractiveInput(in) {
-			return report, fmt.Errorf("not a terminal; use --yes to confirm writes")
-		}
-
-		prompt := fmt.Sprintf("This will replace %d em-dashes in %d files. Continue? [y/N]: ", total, report.Modified)
-		ok, err := ui.ConfirmPrompt(out, in, prompt)
+		ok, err := confirmWrites(opts, total, report.Modified)
 		if err != nil {
 			return report, err
 		}
@@ -144,6 +128,22 @@ func Run(ctx context.Context, opts Options) (*Report, error) {
 	}
 
 	return report, nil
+}
+
+func confirmWrites(opts Options, total, files int) (bool, error) {
+	in := opts.Input
+	if in == nil {
+		in = os.Stdin
+	}
+	out := opts.Output
+	if out == nil {
+		out = os.Stderr
+	}
+	if !ui.IsInteractiveInput(in) {
+		return false, fmt.Errorf("not a terminal; use --yes to confirm writes")
+	}
+	prompt := fmt.Sprintf("This will replace %d em-dashes in %d files. Continue? [y/N]: ", total, files)
+	return ui.ConfirmPrompt(out, in, prompt)
 }
 
 func normalizeAbsPath(path string) (string, error) {
@@ -198,41 +198,12 @@ func scanGitDiff(ctx context.Context, opts Options, root string, extensions []st
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-
 		abs := filepath.Join(repoRoot, rel)
-		relToRoot, err := filepath.Rel(scanRoot, abs)
-		if err != nil || strings.HasPrefix(relToRoot, "..") {
-			slog.Debug("skipping file", "path", rel, "reason", "outside scan root")
+		relToRoot, skip := gitDiffSkip(abs, rel, scanRoot, extensions, opts.IncludeHidden, report)
+		if skip {
 			continue
 		}
-
-		info, err := os.Lstat(abs)
-		if err != nil {
-			if os.IsNotExist(err) {
-				slog.Debug("skipping file", "path", rel, "reason", "deleted file")
-				continue
-			}
-			slog.Debug("skipping file", "path", rel, "reason", err.Error())
-			report.Skipped++
-			continue
-		}
-		if !info.Mode().IsRegular() {
-			slog.Debug("skipping file", "path", rel, "reason", "not a regular file")
-			report.Skipped++
-			continue
-		}
-		if skipReason := skipPath(info.Name(), extensions, opts.IncludeHidden); skipReason != "" {
-			slog.Debug("skipping file", "path", rel, "reason", skipReason)
-			report.Skipped++
-			continue
-		}
-		if info.Size() > MaxFileSize {
-			slog.Debug("skipping file", "path", rel, "reason", "file too large", "size", info.Size())
-			report.Skipped++
-			continue
-		}
-
-		if err := considerFile(ctx, opts, root, abs, relToRoot, extensions, report, pending); err != nil {
+		if err := considerFile(ctx, opts.DryRun, abs, relToRoot, report, pending); err != nil {
 			return err
 		}
 	}
@@ -240,58 +211,110 @@ func scanGitDiff(ctx context.Context, opts Options, root string, extensions []st
 	return nil
 }
 
+func gitDiffSkip(abs, rel, scanRoot string, extensions []string, includeHidden bool, report *Report) (string, bool) {
+	relToRoot, err := filepath.Rel(scanRoot, abs)
+	if err != nil || strings.HasPrefix(relToRoot, "..") {
+		slog.Debug("skipping file", "path", rel, "reason", "outside scan root")
+		return "", true
+	}
+
+	info, err := os.Lstat(abs)
+	if err != nil {
+		if os.IsNotExist(err) {
+			slog.Debug("skipping file", "path", rel, "reason", "deleted file")
+			return "", true
+		}
+		slog.Debug("skipping file", "path", rel, "reason", err.Error())
+		report.Skipped++
+		return "", true
+	}
+	if !info.Mode().IsRegular() {
+		slog.Debug("skipping file", "path", rel, "reason", "not a regular file")
+		report.Skipped++
+		return "", true
+	}
+	if skipReason := skipPath(info.Name(), extensions, includeHidden); skipReason != "" {
+		slog.Debug("skipping file", "path", rel, "reason", skipReason)
+		report.Skipped++
+		return "", true
+	}
+	if info.Size() > MaxFileSize {
+		slog.Debug("skipping file", "path", rel, "reason", "file too large", "size", info.Size())
+		report.Skipped++
+		return "", true
+	}
+	return relToRoot, false
+}
+
+type walkState struct {
+	ctx        context.Context
+	opts       Options
+	root       string
+	extensions []string
+	report     *Report
+	pending    *[]pendingChange
+}
+
 func walkDirectory(ctx context.Context, opts Options, root string, extensions []string, report *Report, pending *[]pendingChange) error {
+	state := walkState{ctx: ctx, opts: opts, root: root, extensions: extensions, report: report, pending: pending}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
-		if err := ctx.Err(); err != nil {
+		if err := state.ctx.Err(); err != nil {
 			return err
 		}
 		if walkErr != nil {
 			return walkErr
 		}
-
 		if d.IsDir() {
-			if path != root {
-				if !opts.IncludeHidden && isHiddenName(d.Name()) {
-					slog.Debug("skipping directory", "path", path, "reason", "hidden path")
-					return filepath.SkipDir
-				}
-				if shouldSkipDir(d.Name()) {
-					slog.Debug("skipping directory", "path", path, "reason", "ignored directory name")
-					return filepath.SkipDir
-				}
-			}
-			return nil
+			return walkSkipDir(path, state.root, d.Name(), state.opts.IncludeHidden)
 		}
-
-		if !d.Type().IsRegular() {
-			slog.Debug("skipping file", "path", path, "reason", "not a regular file")
-			report.Skipped++
-			return nil
-		}
-
-		if skipReason := skipPath(d.Name(), extensions, opts.IncludeHidden); skipReason != "" {
-			slog.Debug("skipping file", "path", path, "reason", skipReason)
-			report.Skipped++
-			return nil
-		}
-
-		if fi, err := d.Info(); err == nil && fi.Size() > MaxFileSize {
-			slog.Debug("skipping file", "path", path, "reason", "file too large", "size", fi.Size())
-			report.Skipped++
-			return nil
-		}
-
-		relPath, relErr := filepath.Rel(root, path)
-		if relErr != nil {
-			relPath = path
-		}
-
-		return considerFile(ctx, opts, root, path, relPath, extensions, report, pending)
+		return state.walkFile(path, d)
 	})
 	if err != nil {
 		return fmt.Errorf("walk directory: %w", err)
 	}
 	return nil
+}
+
+func walkSkipDir(path, root, name string, includeHidden bool) error {
+	if path == root {
+		return nil
+	}
+	if !includeHidden && isHiddenName(name) {
+		slog.Debug("skipping directory", "path", path, "reason", "hidden path")
+		return filepath.SkipDir
+	}
+	if shouldSkipDir(name) {
+		slog.Debug("skipping directory", "path", path, "reason", "ignored directory name")
+		return filepath.SkipDir
+	}
+	return nil
+}
+
+func (s walkState) walkFile(path string, d fs.DirEntry) error {
+	if !d.Type().IsRegular() {
+		slog.Debug("skipping file", "path", path, "reason", "not a regular file")
+		s.report.Skipped++
+		return nil
+	}
+
+	if skipReason := skipPath(d.Name(), s.extensions, s.opts.IncludeHidden); skipReason != "" {
+		slog.Debug("skipping file", "path", path, "reason", skipReason)
+		s.report.Skipped++
+		return nil
+	}
+
+	if fi, err := d.Info(); err == nil && fi.Size() > MaxFileSize {
+		slog.Debug("skipping file", "path", path, "reason", "file too large", "size", fi.Size())
+		s.report.Skipped++
+		return nil
+	}
+
+	relPath, relErr := filepath.Rel(s.root, path)
+	if relErr != nil {
+		relPath = path
+	}
+
+	return considerFile(s.ctx, s.opts.DryRun, path, relPath, s.report, s.pending)
 }
 
 func skipPath(name string, extensions []string, includeHidden bool) string {
@@ -307,7 +330,7 @@ func skipPath(name string, extensions []string, includeHidden bool) string {
 	return ""
 }
 
-func considerFile(ctx context.Context, opts Options, root, absPath, relPath string, extensions []string, report *Report, pending *[]pendingChange) error {
+func considerFile(ctx context.Context, dryRun bool, absPath, relPath string, report *Report, pending *[]pendingChange) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -338,7 +361,7 @@ func considerFile(ctx context.Context, opts Options, root, absPath, relPath stri
 	slog.Debug("found em-dashes",
 		"path", relPath,
 		"replacements", change.Replacements,
-		"dry_run", opts.DryRun,
+		"dry_run", dryRun,
 	)
 	return nil
 }

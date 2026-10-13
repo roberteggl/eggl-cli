@@ -5,7 +5,9 @@ package kill
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -13,7 +15,8 @@ import (
 type windowsFinder struct{}
 
 func (windowsFinder) FindListeners(ctx context.Context, port int) ([]Process, error) {
-	cmd := exec.CommandContext(ctx, "netstat", "-ano")
+	netstat := filepath.Join(os.Getenv("SystemRoot"), "System32", "netstat.exe")
+	cmd := exec.CommandContext(ctx, netstat, "-ano")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("netstat: %w: %s", err, trimOutput(out))

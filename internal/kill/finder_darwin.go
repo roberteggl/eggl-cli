@@ -13,7 +13,11 @@ import (
 type darwinFinder struct{}
 
 func (darwinFinder) FindListeners(ctx context.Context, port int) ([]Process, error) {
-	cmd := exec.CommandContext(ctx, "lsof", "-nP", fmt.Sprintf("-iTCP:%d", port), "-sTCP:LISTEN", "-t")
+	lsof, err := exec.LookPath("lsof")
+	if err != nil {
+		lsof = "/usr/sbin/lsof"
+	}
+	cmd := exec.CommandContext(ctx, lsof, "-nP", fmt.Sprintf("-iTCP:%d", port), "-sTCP:LISTEN", "-t")
 	out, err := cmd.Output()
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) == 0 && len(out) == 0 {
