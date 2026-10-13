@@ -44,13 +44,6 @@ jobs:
       - name: Test
         run: go test -race -coverprofile=coverage.out -coverpkg=./cmd/...,./internal/... ./...
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.out
-          fail_ci_if_error: false
-
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
         env:

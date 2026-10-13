@@ -2,7 +2,8 @@
 
 [![Release](https://img.shields.io/github/v/release/roberteggl/eggl-cli?style=flat-square)](https://github.com/roberteggl/eggl-cli/releases)
 [![CI](https://github.com/roberteggl/eggl-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/roberteggl/eggl-cli/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/roberteggl/eggl-cli/graph/badge.svg)](https://codecov.io/gh/roberteggl/eggl-cli)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=roberteggl_eggl-cli&metric=coverage)](https://sonarcloud.io/summary/new_code?id=roberteggl_eggl-cli)
+[![Quality gate status](https://sonarcloud.io/api/project_badges/measure?project=roberteggl_eggl-cli&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=roberteggl_eggl-cli)
 [![Go](https://img.shields.io/github/go-mod/go-version/roberteggl/eggl-cli?style=flat-square)](https://go.dev/)
 [![License](https://img.shields.io/github/license/roberteggl/eggl-cli?style=flat-square)](LICENSE)
 
