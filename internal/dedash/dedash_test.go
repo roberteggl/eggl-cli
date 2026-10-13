@@ -157,24 +157,6 @@ func TestRunDoesNotReplaceEnDash(t *testing.T) {
 	}
 }
 
-func TestShouldSkipFile(t *testing.T) {
-	if !shouldSkipFile("photo.JPG") {
-		t.Fatal("expected .jpg to be skipped")
-	}
-	if shouldSkipFile("readme.md") {
-		t.Fatal("expected .md not to be skipped")
-	}
-	if !shouldSkipFile("app.jar") {
-		t.Fatal("expected .jar to be skipped")
-	}
-	if !shouldSkipFile("bundle.min.js") {
-		t.Fatal("expected .min.js to be skipped")
-	}
-	if !shouldSkipFile(".DS_Store") {
-		t.Fatal("expected .DS_Store to be skipped")
-	}
-}
-
 func TestRunSkipsBuildOutputDirs(t *testing.T) {
 	root := t.TempDir()
 	cases := []struct {
@@ -226,18 +208,6 @@ func TestRunSkipsJarFiles(t *testing.T) {
 	}
 	if report.Skipped != 1 {
 		t.Fatalf("Skipped = %d, want 1", report.Skipped)
-	}
-}
-
-func TestIsBinaryContent(t *testing.T) {
-	if !isBinaryContent([]byte("hello\x00world")) {
-		t.Fatal("expected null byte content to be binary")
-	}
-	if isBinaryContent([]byte("hello \u2014 world")) {
-		t.Fatal("expected valid UTF-8 text not to be binary")
-	}
-	if !isBinaryContent([]byte{0xff, 0xfe, 0xfd}) {
-		t.Fatal("expected invalid UTF-8 to be treated as binary")
 	}
 }
 
@@ -310,12 +280,6 @@ func TestRunSkipsNonRegularFile(t *testing.T) {
 	}
 	if report.Skipped != 1 {
 		t.Fatalf("Skipped = %d, want 1 (symlink)", report.Skipped)
-	}
-}
-
-func TestIsBinaryContentEmpty(t *testing.T) {
-	if isBinaryContent(nil) {
-		t.Fatal("expected empty content not to be binary")
 	}
 }
 

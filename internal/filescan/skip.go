@@ -1,4 +1,4 @@
-package eol
+package filescan
 
 import (
 	"path/filepath"
@@ -162,16 +162,16 @@ var skippedExtensions = map[string]struct{}{
 	".map":    {},
 }
 
-func isHiddenName(name string) bool {
+func IsHiddenName(name string) bool {
 	return len(name) > 0 && name[0] == '.'
 }
 
-func shouldSkipDir(name string) bool {
+func ShouldSkipDir(name string) bool {
 	_, ok := skippedDirs[name]
 	return ok
 }
 
-func shouldSkipFile(name string) bool {
+func ShouldSkipFile(name string) bool {
 	lower := strings.ToLower(name)
 	if _, ok := skippedFilenames[lower]; ok {
 		return true
@@ -188,7 +188,7 @@ func shouldSkipFile(name string) bool {
 	return ok
 }
 
-func isBinaryContent(data []byte) bool {
+func IsBinaryContent(data []byte) bool {
 	if len(data) == 0 {
 		return false
 	}

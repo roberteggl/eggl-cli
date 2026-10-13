@@ -256,50 +256,20 @@ type DedashSummary struct {
 }
 
 func RenderDedash(w io.Writer, summary DedashSummary) {
-	t := NewTheme(w)
-	w = t.output(w)
-	line := dedashSummaryLine(summary)
-
-	switch {
-	case !t.enabled:
-		fmt.Fprintln(w, line)
-	case summary.Modified > 0 && !summary.DryRun:
-		fmt.Fprintln(w, t.ok.Render(line))
-	case summary.DryRun:
-		fmt.Fprintln(w, t.muted.Render(line))
-	default:
-		fmt.Fprintln(w, t.muted.Render(line))
+	changes := make([]fixChange, len(summary.Changes))
+	for i, c := range summary.Changes {
+		changes[i] = fixChange{Path: c.Path, Replacements: c.Replacements}
 	}
-
-	for _, change := range summary.Changes {
-		if t.enabled {
-			fmt.Fprintf(w, "  %s %s\n",
-				t.command.Render(change.Path),
-				t.muted.Render(fmt.Sprintf("(%d)", change.Replacements)),
-			)
-			continue
-		}
-		fmt.Fprintf(w, "  %s (%d)\n", change.Path, change.Replacements)
-	}
-}
-
-func dedashSummaryLine(summary DedashSummary) string {
-	skipped := ""
-	if summary.Skipped > 0 {
-		skipped = fmt.Sprintf(", skipped %d", summary.Skipped)
-	}
-
-	if summary.Modified == 0 {
-		return fmt.Sprintf("scanned %d files%s, no em-dashes found", summary.Scanned, skipped)
-	}
-
-	if summary.DryRun {
-		return fmt.Sprintf("dry-run: scanned %d files%s, would modify %d (%d replacements)",
-			summary.Scanned, skipped, summary.Modified, summary.TotalReplacements)
-	}
-
-	return fmt.Sprintf("scanned %d files%s, modified %d (%d replacements)",
-		summary.Scanned, skipped, summary.Modified, summary.TotalReplacements)
+	renderFixReport(w, fixReportSummary{
+		Scanned:           summary.Scanned,
+		Modified:          summary.Modified,
+		Skipped:           summary.Skipped,
+		TotalReplacements: summary.TotalReplacements,
+		Changes:           changes,
+		DryRun:            summary.DryRun,
+		NoneFound:         "no em-dashes found",
+		Unit:              "replacements",
+	})
 }
 
 type EOLChange struct {
@@ -317,17 +287,48 @@ type EOLSummary struct {
 }
 
 func RenderEOL(w io.Writer, summary EOLSummary) {
+	changes := make([]fixChange, len(summary.Changes))
+	for i, c := range summary.Changes {
+		changes[i] = fixChange{Path: c.Path, Replacements: c.Replacements}
+	}
+	renderFixReport(w, fixReportSummary{
+		Scanned:           summary.Scanned,
+		Modified:          summary.Modified,
+		Skipped:           summary.Skipped,
+		TotalReplacements: summary.TotalReplacements,
+		Changes:           changes,
+		DryRun:            summary.DryRun,
+		NoneFound:         "no line ending fixes needed",
+		Unit:              "line endings",
+	})
+}
+
+type fixChange struct {
+	Path         string
+	Replacements int
+}
+
+type fixReportSummary struct {
+	Scanned           int
+	Modified          int
+	Skipped           int
+	TotalReplacements int
+	Changes           []fixChange
+	DryRun            bool
+	NoneFound         string
+	Unit              string
+}
+
+func renderFixReport(w io.Writer, summary fixReportSummary) {
 	t := NewTheme(w)
 	w = t.output(w)
-	line := eolSummaryLine(summary)
+	line := fixSummaryLine(summary)
 
 	switch {
 	case !t.enabled:
 		fmt.Fprintln(w, line)
 	case summary.Modified > 0 && !summary.DryRun:
 		fmt.Fprintln(w, t.ok.Render(line))
-	case summary.DryRun:
-		fmt.Fprintln(w, t.muted.Render(line))
 	default:
 		fmt.Fprintln(w, t.muted.Render(line))
 	}
@@ -344,23 +345,23 @@ func RenderEOL(w io.Writer, summary EOLSummary) {
 	}
 }
 
-func eolSummaryLine(summary EOLSummary) string {
+func fixSummaryLine(summary fixReportSummary) string {
 	skipped := ""
 	if summary.Skipped > 0 {
 		skipped = fmt.Sprintf(", skipped %d", summary.Skipped)
 	}
 
 	if summary.Modified == 0 {
-		return fmt.Sprintf("scanned %d files%s, no line ending fixes needed", summary.Scanned, skipped)
+		return fmt.Sprintf("scanned %d files%s, %s", summary.Scanned, skipped, summary.NoneFound)
 	}
 
 	if summary.DryRun {
-		return fmt.Sprintf("dry-run: scanned %d files%s, would modify %d (%d line endings)",
-			summary.Scanned, skipped, summary.Modified, summary.TotalReplacements)
+		return fmt.Sprintf("dry-run: scanned %d files%s, would modify %d (%d %s)",
+			summary.Scanned, skipped, summary.Modified, summary.TotalReplacements, summary.Unit)
 	}
 
-	return fmt.Sprintf("scanned %d files%s, modified %d (%d line endings)",
-		summary.Scanned, skipped, summary.Modified, summary.TotalReplacements)
+	return fmt.Sprintf("scanned %d files%s, modified %d (%d %s)",
+		summary.Scanned, skipped, summary.Modified, summary.TotalReplacements, summary.Unit)
 }
 
 type EnvProfile struct {

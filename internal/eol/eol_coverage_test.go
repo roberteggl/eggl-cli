@@ -13,30 +13,6 @@ import (
 	"github.com/creack/pty"
 )
 
-func TestShouldSkipFile(t *testing.T) {
-	if !shouldSkipFile("photo.JPG") {
-		t.Fatal("expected .jpg to be skipped")
-	}
-	if shouldSkipFile("readme.md") {
-		t.Fatal("expected .md not to be skipped")
-	}
-	if !shouldSkipDir("node_modules") {
-		t.Fatal("expected node_modules to be skipped")
-	}
-}
-
-func TestIsBinaryContent(t *testing.T) {
-	if !isBinaryContent([]byte("hello\x00world")) {
-		t.Fatal("expected null byte content to be binary")
-	}
-	if isBinaryContent([]byte("hello\r\nworld")) {
-		t.Fatal("expected valid UTF-8 text not to be binary")
-	}
-	if isBinaryContent(nil) {
-		t.Fatal("expected empty content not to be binary")
-	}
-}
-
 func TestRunInvalidPath(t *testing.T) {
 	_, err := Run(context.Background(), Options{Root: filepath.Join(t.TempDir(), "missing")})
 	if err == nil {
@@ -450,18 +426,6 @@ func writeEOLGitFile(t *testing.T, dir, name, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestShouldSkipFileEdgeCases(t *testing.T) {
-	if !shouldSkipFile(".DS_Store") {
-		t.Fatal("expected .DS_Store to be skipped")
-	}
-	if !shouldSkipFile("bundle.min.js") {
-		t.Fatal("expected .min.js to be skipped")
-	}
-	if !shouldSkipFile("archive.zip") {
-		t.Fatal("expected .zip to be skipped")
 	}
 }
 

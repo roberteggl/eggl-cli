@@ -2,36 +2,6 @@ package dedash
 
 import "testing"
 
-func TestNormalizeExtensions(t *testing.T) {
-	got := normalizeExtensions([]string{" md ", "txt,.go", ".MD", "txt"})
-	want := []string{".md", ".txt", ".go"}
-	if len(got) != len(want) {
-		t.Fatalf("normalizeExtensions() = %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("normalizeExtensions()[%d] = %q, want %q", i, got[i], want[i])
-		}
-	}
-}
-
-func TestMatchesExtension(t *testing.T) {
-	extensions := normalizeExtensions([]string{"md", "txt"})
-
-	if !matchesExtension("readme.md", extensions) {
-		t.Fatal("expected .md to match")
-	}
-	if !matchesExtension("README.MD", extensions) {
-		t.Fatal("expected .MD to match case-insensitively")
-	}
-	if matchesExtension("image.png", extensions) {
-		t.Fatal("expected .png not to match")
-	}
-	if !matchesExtension("notes.txt", nil) {
-		t.Fatal("expected all extensions to match when filter is empty")
-	}
-}
-
 func TestRunFiltersByExtension(t *testing.T) {
 	root := t.TempDir()
 	for name, content := range map[string]string{

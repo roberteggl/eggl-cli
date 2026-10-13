@@ -1,11 +1,11 @@
-package dedash
+package filescan
 
 import (
 	"path/filepath"
 	"strings"
 )
 
-func normalizeExtensions(raw []string) []string {
+func NormalizeExtensions(raw []string) []string {
 	if len(raw) == 0 {
 		return nil
 	}
@@ -32,7 +32,7 @@ func normalizeExtensions(raw []string) []string {
 	return out
 }
 
-func matchesExtension(name string, extensions []string) bool {
+func MatchesExtension(name string, extensions []string) bool {
 	if len(extensions) == 0 {
 		return true
 	}
