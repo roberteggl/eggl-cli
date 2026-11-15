@@ -3,7 +3,7 @@ module github.com/roberteggl/eggl-cli
 go 1.26.10
 
 require (
-	charm.land/lipgloss/v2 v2.1.0
+	charm.land/lipgloss/v2 v2.1.1
 	github.com/charmbracelet/colorprofile v0.4.3
 	github.com/creack/pty v1.1.24
 	github.com/spf13/cobra v1.10.2
