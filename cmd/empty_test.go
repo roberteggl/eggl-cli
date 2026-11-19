@@ -14,6 +14,8 @@ func TestEmptyHelp(t *testing.T) {
 
 	for _, want := range []string{
 		"eggl empty",
+		"--message",
+		"-m",
 		"--push",
 		"-p",
 		"Examples:",
@@ -60,6 +62,47 @@ func TestEmptyCreatesCommit(t *testing.T) {
 	if strings.Contains(stdout, "pushed") {
 		t.Fatalf("expected no push output, got %q", stdout)
 	}
+
+	msg := gitLogMessage(t, dir)
+	if msg != "chore: empty commit" {
+		t.Fatalf("commit message = %q, want default", msg)
+	}
+}
+
+func TestEmptyCustomMessage(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	t.Setenv("NO_COLOR", "1")
+
+	dir := t.TempDir()
+	initGitRepo(t, dir)
+
+	origWD, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(origWD)
+	})
+
+	stdout, _, err := runCmd(t, "empty", "-m", "ci: retrigger")
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	if !strings.Contains(stdout, "empty commit ") {
+		t.Fatalf("expected empty commit output, got %q", stdout)
+	}
+
+	msg := gitLogMessage(t, dir)
+	if msg != "ci: retrigger" {
+		t.Fatalf("commit message = %q, want %q", msg, "ci: retrigger")
+	}
 }
 
 func TestEmptyPushWithoutRemote(t *testing.T) {
@@ -105,4 +148,16 @@ func runGit(t *testing.T, dir string, args ...string) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %s: %v: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 	}
+}
+
+func gitLogMessage(t *testing.T, dir string) string {
+	t.Helper()
+
+	cmd := exec.Command("git", "log", "-1", "--pretty=%s")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git log: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out))
 }

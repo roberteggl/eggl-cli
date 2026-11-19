@@ -8,7 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var emptyPush bool
+var (
+	emptyPush    bool
+	emptyMessage string
+)
 
 var emptyCmd = &cobra.Command{
 	Use:   "empty",
@@ -16,15 +19,18 @@ var emptyCmd = &cobra.Command{
 	Long: `Create an empty git commit in the current repository.
 
 Useful for retriggering CI pipelines without changing files.
+Use --message to set a custom commit message (default: "chore: empty commit").
 Use --push to push the commit after creating it.`,
 	Example: `  eggl empty
+  eggl empty -m "ci: retrigger"
   eggl empty --push
   eggl empty -p`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		slog.Debug("running empty commit", "push", emptyPush)
+		slog.Debug("running empty commit", "push", emptyPush, "message", emptyMessage)
 
 		result, err := git.Run(cmd.Context(), git.Options{
-			Push: emptyPush,
+			Message: emptyMessage,
+			Push:    emptyPush,
 		})
 		if err != nil {
 			return err
@@ -40,6 +46,7 @@ Use --push to push the commit after creating it.`,
 }
 
 func init() {
+	emptyCmd.Flags().StringVarP(&emptyMessage, "message", "m", "", `Commit message (default "chore: empty commit")`)
 	emptyCmd.Flags().BoolVarP(&emptyPush, "push", "p", false, "Push the commit after creating it")
 	rootCmd.AddCommand(emptyCmd)
 }
