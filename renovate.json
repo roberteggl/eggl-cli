@@ -6,7 +6,9 @@
     ":automergeAll",
     ":automergeRequireAllStatusChecks"
   ],
-  "dependencyDashboard": true,
+  "dependencyDashboard": {
+    "enabled": true
+  },
   "semanticCommits": "enabled",
   "semanticCommitType": "chore",
   "semanticCommitScope": "deps",
