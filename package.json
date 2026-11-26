@@ -9,8 +9,8 @@
     "preview": "rspress preview"
   },
   "devDependencies": {
-    "@rspress/core": "2.1.4",
-    "@types/node": "26.6.10",
+    "@rspress/core": "2.1.5",
+    "@types/node": "26.6.11",
     "rspress-plugin-mermaid": "2.0.0",
     "typescript": "7.0.2"
   },
